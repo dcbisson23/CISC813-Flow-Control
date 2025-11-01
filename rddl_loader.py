@@ -28,8 +28,8 @@ tnorm='ProductTNorm'
 tnorm_kwargs={}
 
 [Optimizer]
-method='JaxStraightLinePlan'
-method_kwargs={}
+method='JaxDeepReactivePolicy'
+method_kwargs={'topology': [128, 64]}
 optimizer='rmsprop'
 optimizer_kwargs={'learning_rate': 0.001}
 batch_size_train=32
@@ -52,7 +52,7 @@ instance = Path.cwd().joinpath('pump_instance0.rddl')
 # domain = Path.cwd().joinpath('archives/Reservoir/domain.rddl')
 # instance = Path.cwd().joinpath('archives/Reservoir/instance0.rddl')
 
-def run_planner(dom, prob, online=True):
+def run_planner(dom, prob, online=False):
 
     planner_args, plan_args, train_args = load_config("config.cfg")
     # os.system("rm -f logs/data_log.csv")

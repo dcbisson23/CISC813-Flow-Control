@@ -1,0 +1,51 @@
+non-fluents complex_chain {
+	domain = pump_flow_control;
+
+	objects{
+		node: {t0, t1, t2-1, t2-2, t3};
+		pump: {p0, p1-1, p1-2, p2-0, p2-1, p2-2, p3};
+	};
+
+	non-fluents {
+		CAPACITY(t0) = 1000;
+		CAPACITY(t1) = 1000;
+		CAPACITY(t2-1) = 500;
+		CAPACITY(t2-2) = 500;
+		CAPACITY(t3) = 1000;
+
+		SOURCE(t0);
+
+		DRAWS(p0, t0, t1);
+		DRAWS(p1-1, t1, t2-1);
+		DRAWS(p1-2, t1, t2-2);
+		DRAWS(p2-0, t2-1, t2-2);
+		DRAWS(p2-1, t2-1, t3);
+		DRAWS(p2-2, t2-2, t3);
+		DRAWS(p3, t3, t0);
+
+		PUMP-TYPE(p2-2) = @cf;
+
+		HAS-TARGET-FLOW(p1-1);
+		TARGET-FLOW(p1-1) = 400.0;
+		HAS-TARGET-FLOW(p2-1);
+		TARGET-FLOW(p2-1) = 200.0;
+		HAS-TARGET-FLOW(p3);
+		TARGET-FLOW(p3) = 600.0;
+
+	};
+}
+
+instance pump_cont_2 {
+	domain = pump_flow_control;
+	non-fluents = complex_chain;
+
+	init-state{
+		holding(t0) = 1000.0;
+		holding(t2-1) = 0.0;
+		holding(t2-2) = 0.0;
+	};
+
+	max-nondef-actions = pos-inf;
+	horizon = 100;
+	discount = 1.0;
+}

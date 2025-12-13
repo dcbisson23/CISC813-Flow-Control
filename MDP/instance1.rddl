@@ -1,0 +1,38 @@
+non-fluents simple-open {
+	domain = pump_flow_control;
+
+	objects{
+		node: {t1, t2, t3};
+		pump: {p1, p2};
+	};
+
+	non-fluents {
+		POLLING-RATE = 2.0;
+		CAPACITY(t1) = 1000;
+		CAPACITY(t2) = 1000;
+		CAPACITY(t3) = 1000;
+		SOURCE(t1);
+		SOURCE(t3);
+		DRAWS(p1, t1, t2);
+		DRAWS(p2, t2, t3);
+
+		HAS-TARGET-FLOW(p2);
+		TARGET-FLOW(p2) = 50.0;
+		HAS-TARGET-LEVEL(t2);
+		TARGET-LEVEL(t2) = 0.5;
+
+	};
+}
+
+instance pump_cont_1 {
+	domain = pump_flow_control;
+	non-fluents = simple-open;
+
+	init-state{
+		holding(t2) = 30.0;
+	};
+
+	max-nondef-actions = pos-inf;
+	horizon = 50;
+	discount = 1.0;
+}

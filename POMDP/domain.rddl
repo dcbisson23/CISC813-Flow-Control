@@ -82,11 +82,12 @@ domain pump_flow_control_po {
         // -- INTERMEDIATE FLUENTS --
         // These will make more sense in-context - see CPFs for more details.
 
-        pump-head-variance(pump): {interm-fluent, real};
-        pump-head-expected(pump): {interm-fluent, real};
-
         tank-level(node): {interm-fluent, real};
         tank-pressure(node): {interm-fluent, real};
+
+        pump-extra-head(pump): {interm-fluent, real};
+        pump-expected-head(pump): {interm-fluent, real};
+
         pump-head(pump): {interm-fluent, real};
 
         inflow(node): {interm-fluent, real};
@@ -130,7 +131,7 @@ domain pump_flow_control_po {
         // -- INTERMEDIATE FLUENTS --
         
         // The variance acts as a multiplier to <pump-head>.
-        pump-head-variance(?p) = max[0, Normal(1, HEAD-VARIANCE)];
+        pump-extra-head(?p) = (1 - Beta(10, 1)) * 10;
 
         // The level of the tank measures how full the tank is (from 0 to 1).
         tank-level(?n) = holding(?n) / CAPACITY(?n);
@@ -145,11 +146,8 @@ domain pump_flow_control_po {
         // We'll assume that all tanks are at the same height, and that pump inlets/outlets are positioned at the bottom of each tank.
         // Thus, the head is just the difference between downstream head and upstream head (downstream/upstream tank pressures * 2.31).
         // We'll also assume the head is constant throughout the polling interval (it wouldn't be, but we're working on discrete time).
-        pump-head-expected(?p) = 2.31 * sum_{?un: node, ?dn: node} [DRAWS(?p, ?un, ?dn) * (tank-pressure(?dn) - tank-pressure(?un))];
-        pump-head(?p) = pump-head-expected(?p) * pump-head-variance(?p);
-        // The total flow in/out of each tank.
-        inflow(?n) = sum_{?un: node, ?p: pump} [DRAWS(?p, ?un, ?n) * pump-flow(?p)];
-        outflow(?n) = sum_{?dn: node, ?p: pump} [DRAWS(?p, ?n, ?dn) * pump-flow(?p)];
+        pump-expected-head(?p) = 2.31 * sum_{?un: node, ?dn: node} [DRAWS(?p, ?un, ?dn) * (tank-pressure(?dn) - tank-pressure(?un))];
+        pump-head(?p) = pump-expected-head(?p) * pump-extra-head(?p);
 
         // The new speed of the pump.
         // As implemented, this assumes the pump instantaneously changes its speed at the start of the snapshot.
@@ -165,6 +163,10 @@ domain pump_flow_control_po {
                 case @cf:
                     new-pump-hz(?p) * PUMP-DISPLACEMENT(?p) - pow[max[0, pump-head(?p)], 2]
             };
+        
+        // The total flow in/out of each tank.
+        inflow(?n) = sum_{?un: node, ?p: pump} [DRAWS(?p, ?un, ?n) * new-pump-flow(?p)];
+        outflow(?n) = sum_{?dn: node, ?p: pump} [DRAWS(?p, ?n, ?dn) * new-pump-flow(?p)];
         
         // -- NEXT STATE FLUENTS --
 
@@ -227,7 +229,8 @@ domain pump_flow_control_po {
 
     action-preconditions {
         // Prevent actions that would result in negative speed.
-        forall_{?p: pump} [pump-flow(?p) + pump-delta(?p) >= 0.0];
+        forall_{?p: pump} [pump-hz(?p) + pump-delta(?p) >= 0.0];
+        forall_{?p: pump} [abs[pump-delta(?p)] <= 5.0 * POLLING-RATE];
 	};
 
 

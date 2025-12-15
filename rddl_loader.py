@@ -26,9 +26,9 @@ control_kwargs={'weight': 100}
 [Optimizer]
 method='JaxStraightLinePlan'
 pgpe=None
-rollout_horizon=10
+rollout_horizon=5
 utility='cvar'
-utility_kwargs={'alpha': 0.5}
+utility_kwargs={'alpha': 0.2}
 [Training]
 key=42
 train_seconds=5
@@ -43,20 +43,20 @@ control_kwargs={'weight': 100}
 method='JaxDeepReactivePolicy'
 optimizer_kwargs={'learning_rate': 0.001}
 utility='cvar'
-utility_kwargs={'alpha': 0.5}
+utility_kwargs={'alpha': 0.2}
 
 rollout_horizon=100
 [Training]
 key=42
-train_seconds=600
+train_seconds=60
 """
 
 
 
+instance_name = 'MDP/instance3'
 
-
-domain = Path.cwd().joinpath('POMDP/domain.rddl')
-instance = Path.cwd().joinpath('POMDP/instance0.rddl')
+domain = Path.cwd().joinpath('MDP/domain.rddl')
+instance = Path.cwd().joinpath(instance_name + '.rddl')
 
 # domain = Path.cwd().joinpath('archives/Reservoir/domain.rddl')
 # instance = Path.cwd().joinpath('archives/Reservoir/instance0.rddl')
@@ -73,9 +73,9 @@ def run_planner(dom, prob, online=True):
     # os.system("rm -f logs/data_log.csv")
 
     # set up the environment (note the vectorized option must be True)
-    env = pyRDDLGym.make(domain=dom, instance=prob, vectorized=True, backend=JaxRDDLSimulator, log_path=Path.cwd().joinpath("logs"))
+    env = pyRDDLGym.make(domain=dom, instance=prob, vectorized=True, backend=JaxRDDLSimulator, log_path=Path.cwd().joinpath(f"logs/{instance_name}"))
     print(env.action_space, env.state)
-    recorder = MovieGenerator("logs", "pump-flow-ctrl", max_frames=env.horizon)
+    recorder = MovieGenerator(f"logs", "pump-flow-ctrl", max_frames=env.horizon)
     env.set_visualizer(viz=None, movie_gen=recorder)
 
     if online:

@@ -34,15 +34,10 @@ domain pump_flow_control {
 
         // The time between state snapshots (s). 
         // Faster polling rates let the planner respond quicker, but limit calculation time for replanning.
-        POLLING-RATE: {non-fluent, real, default = 5.0}; 
+        POLLING-RATE: {non-fluent, real, default = 1.0}; 
 
         // The density of the fluid in the system (kg/m^3). Defaults to pure water (1000 kg/m^3).
         FLUID-DENSITY: {non-fluent, real, default = 1000};
-
-        // How much the head pressure deviates compared to expected value.
-        // Induces stochasticity into the system (when centrifugal pumps are used);
-        // can be thought of as the effect of turbulence/obstructions.
-        HEAD-VARIANCE: {non-fluent, real, default = 0.1};
 
         // The reward for reaching target values, and how strongly deviation is penalized.
         // Large negative max rewards and very strong dropoffs may cause the system to intentionally fail (see reward section).
@@ -52,7 +47,7 @@ domain pump_flow_control {
         MAX-LEVEL-REWARD: {non-fluent, real, default = 100};
         LEVEL-REWARD-DROPOFF: {non-fluent, real, default = 1.0};
 
-        // -- SYSTEM IDENTITIES --
+        // -- SYSTEM ATTRIBUTES --
 
         // Source nodes are points where fluid enters/exits the system. Their presence indicates an open system.
         SOURCE(node): {non-fluent, bool, default = false};
@@ -82,10 +77,11 @@ domain pump_flow_control {
         // -- INTERMEDIATE FLUENTS --
         // These will make more sense in-context - see CPFs for more details.
 
-        pump-head-variance(pump): {interm-fluent, real};
-
         tank-level(node): {interm-fluent, real};
         tank-pressure(node): {interm-fluent, real};
+
+        pump-extra-head(pump): {interm-fluent, real};
+        pump-expected-head(pump): {interm-fluent, real};
         pump-head(pump): {interm-fluent, real};
 
         inflow(node): {interm-fluent, real};
@@ -119,9 +115,6 @@ domain pump_flow_control {
     cpfs {
 
         // -- INTERMEDIATE FLUENTS --
-        
-        // The variance acts as a multiplier to <pump-head>.
-        pump-head-variance(?p) = max[0, Normal(1, HEAD-VARIANCE)];
 
         // The level of the tank measures how full the tank is (from 0 to 1).
         tank-level(?n) = holding(?n) / CAPACITY(?n);
@@ -132,15 +125,14 @@ domain pump_flow_control {
         // ii. pressure at the fluid surface (1 atm -> 14.7 psi).
         tank-pressure(?n) = FLUID-DENSITY * 9.81 * (tank-level(?n) * MAX-DEPTH(?n)) + 14.7;
 
+        pump-extra-head(?p) = (1 - Beta(10, 1)) * 10;
+        
         // The total dynamic head (TDH) the pump must overcome to induce flow.
         // We'll assume that all tanks are at the same height, and that pump inlets/outlets are positioned at the bottom of each tank.
         // Thus, the head is just the difference between downstream head and upstream head (downstream/upstream tank pressures * 2.31).
         // We'll also assume the head is constant throughout the polling interval (it wouldn't be, but we're working on discrete time).
-        pump-head(?p) = pump-head-variance(?p) * 2.31 * sum_{?un: node, ?dn: node} [DRAWS(?p, ?un, ?dn) * (tank-pressure(?dn) - tank-pressure(?un))];
-
-        // The total flow in/out of each tank.
-        inflow(?n) = sum_{?un: node, ?p: pump} [DRAWS(?p, ?un, ?n) * pump-flow(?p)];
-        outflow(?n) = sum_{?dn: node, ?p: pump} [DRAWS(?p, ?n, ?dn) * pump-flow(?p)];
+        pump-expected-head(?p) = 2.31 * sum_{?un: node, ?dn: node} [DRAWS(?p, ?un, ?dn) * (tank-pressure(?dn) - tank-pressure(?un))];
+        pump-head(?p) = pump-extra-head(?p) + pump-expected-head(?p);
 
         // The new speed of the pump.
         // As implemented, this assumes the pump instantaneously changes its speed at the start of the snapshot.
@@ -157,10 +149,13 @@ domain pump_flow_control {
                     new-pump-hz(?p) * PUMP-DISPLACEMENT(?p) - pow[max[0, pump-head(?p)], 2]
             };
         
+        // The total flow in/out of each tank.
+        inflow(?n) = sum_{?un: node, ?p: pump} [DRAWS(?p, ?un, ?n) * new-pump-flow(?p)];
+        outflow(?n) = sum_{?dn: node, ?p: pump} [DRAWS(?p, ?n, ?dn) * new-pump-flow(?p)];
+
         // -- NEXT STATE FLUENTS --
 
-        pump-hz'(?p) = 
-            max[0, new-pump-hz(?p)];
+        pump-hz'(?p) = max[0, new-pump-hz(?p)];
 
         pump-flow'(?p) = max[0, new-pump-flow(?p)];
 
@@ -176,7 +171,7 @@ domain pump_flow_control {
             (if (HAS-TARGET-FLOW(?p)) then MAX-FLOW-REWARD - FLOW-REWARD-DROPOFF * abs[pump-flow'(?p) - TARGET-FLOW(?p)] else 0)
             // Penalize high rate of change, heavily penalize jolt (to incentivize smooth rate of change).
             - (pow[abs[cur-pump-delta'(?p) - cur-pump-delta(?p)], 2])
-            - (abs[cur-pump-delta'(?p)])
+            - (pow[abs[cur-pump-delta'(?p)], 2])
             // Heavily penalize actions that would break state constraints (if not for built-in failure prevention).
             - (if (new-pump-hz(?p) < 0) then 10000 * abs[new-pump-hz(?p)] else 0)
             - (if (new-pump-flow(?p) < 0) then 10000 * abs[new-pump-flow(?p)] else 0)]
@@ -185,8 +180,8 @@ domain pump_flow_control {
             // Reward meeting level target(s), penalize deviation.
             (if (HAS-TARGET-LEVEL(?n)) then (MAX-LEVEL-REWARD - LEVEL-REWARD-DROPOFF * 100 * abs[(holding'(?n) / CAPACITY(?n) - TARGET-LEVEL(?n))]) else 0)
             // Heavily penalize actions that would result in overdrawing or overfilling tanks (catastrophic system failures).
-            - (if (holding'(?n) / CAPACITY(?n) < 0) then 10000 * abs[holding'(?n)] else 0)
-            - (if (holding'(?n) / CAPACITY(?n) > 1) then 10000 * abs[holding'(?n) - CAPACITY(?n)] else 0)];
+            - (if (holding'(?n) / CAPACITY(?n) < 0) then 1000000 + 10000000 * abs[holding'(?n)] else 0)
+            - (if (holding'(?n) / CAPACITY(?n) > 1) then 1000000 + 10000000 * abs[holding'(?n) - CAPACITY(?n)] else 0)];
 
 	state-invariants {
         
@@ -202,7 +197,9 @@ domain pump_flow_control {
 
     action-preconditions {
         // Prevent actions that would result in negative speed.
-        forall_{?p: pump} [pump-flow(?p) + pump-delta(?p) >= 0.0];
+        forall_{?p: pump} [pump-hz(?p) + pump-delta(?p) >= 0.0];
+        forall_{?p: pump} [abs[pump-delta(?p)] <= 1.0 * POLLING-RATE];
+        forall_{?p: pump} [abs[pump-delta(?p) - cur-pump-delta(?p)] <= 0.5 * POLLING-RATE];
 	};
 
 

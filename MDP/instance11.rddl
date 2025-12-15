@@ -1,9 +1,9 @@
-non-fluents simple-open {
+non-fluents simple-open-doubled {
 	domain = pump_flow_control;
 
 	objects{
 		node: {t1, t2, t3};
-		pump: {p1, p2};
+		pump: {p1_1, p1_2, p2};
 	};
 
 	non-fluents {
@@ -13,9 +13,12 @@ non-fluents simple-open {
 		CAPACITY(t3) = 1000;
 		SOURCE(t1);
 		SOURCE(t3);
-		DRAWS(p1, t1, t2);
+		DRAWS(p1_1, t1, t2);
+		DRAWS(p1_2, t1, t2);
 		DRAWS(p2, t2, t3);
-		PUMP-TYPE(p1) = @cf;
+
+		PUMP-TYPE(p1_1) = @cf;
+		PUMP-TYPE(p1_2) = @cf;
 		HAS-TARGET-FLOW(p2);
 		TARGET-FLOW(p2) = 50.0;
 		HAS-TARGET-LEVEL(t2);
@@ -26,10 +29,10 @@ non-fluents simple-open {
 
 instance pump_cont_1 {
 	domain = pump_flow_control;
-	non-fluents = simple-open;
+	non-fluents = simple-open-doubled;
 
 	init-state{
-		holding(t2) = 0.0;
+		holding(t2) = 250.0;
 	};
 
 	max-nondef-actions = pos-inf;

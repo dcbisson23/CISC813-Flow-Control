@@ -1,4 +1,4 @@
-non-fluents complex_flow_pd {
+non-fluents complex_level_pd {
 	domain = pump_flow_control;
 
 	objects{
@@ -7,7 +7,7 @@ non-fluents complex_flow_pd {
 	};
 
 	non-fluents {
-		POLLING-RATE = 5;
+        POLLING-RATE = 5;
 
 		CAPACITY(t0) = 1000;
 		CAPACITY(t1) = 1000;
@@ -21,29 +21,31 @@ non-fluents complex_flow_pd {
 		DRAWS(p1-1, t1, t2-1);
 		DRAWS(p1-2, t1, t2-2);
 		DRAWS(p2-01, t2-1, t2-2);
-		DRAWS(p2-02, t2-2, t2-1);
+        DRAWS(p2-02, t2-2, t2-1);
 		DRAWS(p2-1, t2-1, t3);
 		DRAWS(p2-2, t2-2, t3);
 		DRAWS(p3, t3, t0);
 
 		PUMP-TYPE(p1-1) = @cf;
 		PUMP-TYPE(p1-2) = @cf;
-		PUMP-TYPE(p2-1) = @pd;
-		PUMP-TYPE(p2-2) = @pd;
+        PUMP-TYPE(p2-1) = @pd;
+        PUMP-TYPE(p2-2) = @pd;
 
-		HAS-TARGET-FLOW(p1-1);
-		TARGET-FLOW(p1-1) = 400.0;
-		HAS-TARGET-FLOW(p2-1);
-		TARGET-FLOW(p2-1) = 200.0;
+		HAS-TARGET-LEVEL(t2-1);
+		TARGET-LEVEL(t2-1) = 0.8;
+		HAS-TARGET-LEVEL(t2-2);
+		TARGET-LEVEL(t2-2) = 0.4;
+        HAS-TARGET-LEVEL(t3);
+		TARGET-LEVEL(t3) = 0.8;
 		HAS-TARGET-FLOW(p3);
 		TARGET-FLOW(p3) = 600.0;
 
 	};
 }
 
-instance pump_cont_2 {
+instance pump_cont_3 {
 	domain = pump_flow_control;
-	non-fluents = complex_flow_pd;
+	non-fluents = complex_level_pd;
 
 	init-state{
 		holding(t0) = 1000.0;

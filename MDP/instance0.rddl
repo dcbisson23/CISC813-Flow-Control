@@ -7,7 +7,7 @@ non-fluents simple-closed {
 	};
 
 	non-fluents {
-
+		POLLING-RATE = 5;
 		CAPACITY(t1) = 1000;
 		CAPACITY(t2) = 1000;
 

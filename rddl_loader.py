@@ -52,16 +52,20 @@ train_seconds=60
 """
 
 
+# Set the root directory to either MDP or POMDP, and the instance name to the instance you would like to evaluate.
+# Note: Running POMDP does not currently work 
+# (JaxPlan does not work with replanning in POMDP environments currently, though it may be fixed soon).
 
-instance_name = 'MDP/instance3'
-
-domain = Path.cwd().joinpath('MDP/domain.rddl')
-instance = Path.cwd().joinpath(instance_name + '.rddl')
-
-# domain = Path.cwd().joinpath('archives/Reservoir/domain.rddl')
-# instance = Path.cwd().joinpath('archives/Reservoir/instance0.rddl')
+root_directory = 'MDP'
+instance_name = 'instance3'
+run_online = True
 
 
+
+
+
+domain = Path.cwd().joinpath(root_directory + '/domain.rddl')
+instance = Path.cwd().joinpath(root_directory + '/' + instance_name + '.rddl')
 
 def run_planner(dom, prob, online=True):
     with open("config.cfg", "w") as f:
@@ -123,4 +127,4 @@ def run_planner(dom, prob, online=True):
     return rendered_image
 
 if __name__ == '__main__':
-    run_planner(domain, instance).show()
+    run_planner(domain, instance, run_online).show()
